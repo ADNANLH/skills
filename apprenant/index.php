@@ -207,7 +207,7 @@ if(empty($_POST['search']) && empty($_POST['categorie'])){
                             <div class='d-flex justify-content-between'>
                                 <span class='prof'>Prof : ".$row['prenom_formateur']." ".$row['nom_formateur']." </span>
                                 <span class='prof'>Etat :  ".$row['etat']." </span>
-                                <button><a class='text-decoration-none lnnk' href='details.php?id_formation=" . $row['id_formation'] . "'>Voir plus</a></button>
+                                <button><a class='text-decoration-none lnnk' href='details.php?id_session=" . $row['id_session'] . "'>Voir plus</a></button>
                             </div>
                         </div>
                     </form>
@@ -236,6 +236,7 @@ if(empty($_POST['search']) && empty($_POST['categorie'])){
         background-size: 100%;
         background-position-y: -257px;
         background-repeat: no-repeat;
+        background-attachment: fixed;
     }
     h1.grtitre {
         color: white;
