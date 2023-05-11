@@ -1,6 +1,6 @@
 <?php
 session_start();
-$id_formation = $_GET['id_formation'];
+$id_session = $_GET['id_session'];
 require "../connection.php";
 $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
 
@@ -24,17 +24,17 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
 <body>
 
     <?php
-    $sql = "SELECT f.*, s.id_session, s.date_debut, s.date_fin, s.etat, s.places,
+        $sql = "SELECT f.*, s.id_session, s.date_debut, s.date_fin, s.etat, s.places,
             fo.id_formateur, fo.nom_formateur, fo.prenom_formateur
             FROM formations f
             INNER JOIN sessions s ON f.id_formation = s.id_formation
             INNER JOIN formateurs fo ON s.id_formateur = fo.id_formateur
-            WHERE f.id_formation = :id_formation
+            WHERE s.id_session = :id_session
         ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':id_formation', $id_formation);
-    $stmt->execute();
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindParam(':id_session', $id_session);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
     
     ?>
 
@@ -66,13 +66,14 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
                     <span class="prof"><?php echo $row['prenom_formateur'] . ' ' . $row['nom_formateur']; ?></span>
                     <span class="etat"><?php echo $row['etat']; ?></span>
                 </div>
-                    <?php 
-                    if($row['etat'] != 'en cours dinscription' ){   
-                        echo "<input type='submit' name='submitee' value='Inscrire' disabled>"; 
-                    } else {
-                        echo "<input type='submit' name='submit' value='Inscrire'>"; 
-                    }
-                    ?>
+                <input type='submit' name='submit' value='Inscrire'>
+                     <?php  
+                    // if($row['etat'] != 'en cours dinscription' ){   
+                    //     echo "<input type='submit' name='submitee' value='Inscrire' disabled>"; 
+                    // } else {
+                    //     echo 
+                    // }
+                    ?> 
             </div>
         </div>
     </form>
@@ -82,15 +83,15 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
         </div>
 </body>
     <?php
-        //check if already inscrire in a session in formation
+        //check if already inscrire in a session in the same formation
 
         $sql2 = "SELECT COUNT(*) AS count
-                    FROM inscriptions i
-                    INNER JOIN sessions s ON i.id_session = s.id_session
-                    WHERE i.id_appr = :id_appr
-                    AND s.id_formation = :id_formation
-                    AND (s.etat = 'en cours' OR s.etat = 'en cours dinscription')
-                ";
+            FROM inscriptions i
+            INNER JOIN sessions s ON i.id_session = s.id_session
+            WHERE i.id_appr = :id_appr
+            AND s.id_formation = :id_formation
+            -- AND (s.etat = 'en cours' OR s.etat = 'en cours dinscription')
+        ";
 
         $stmt = $pdo->prepare($sql2);
         $stmt->bindParam(':id_appr', $id_appr);
@@ -98,12 +99,14 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
         $stmt->execute();
         $row2 = $stmt->fetch(PDO::FETCH_ASSOC);
 
+
         //check if there is 2 session 
         $sql3 = "SELECT COUNT(*) AS count
                     FROM inscriptions i
                     INNER JOIN sessions s ON i.id_session = s.id_session
                     WHERE i.id_appr = :id_appr
                     AND (s.etat = 'en cours' OR s.etat = 'en cours dinscription')
+                    AND YEAR(s.date_debut) = YEAR(CURRENT_DATE()) 
                 ";
         $stmt = $pdo->prepare($sql3);
         $stmt->bindParam(':id_appr', $id_appr);
@@ -115,9 +118,10 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
                     FROM inscriptions i
                     INNER JOIN sessions s ON i.id_session = s.id_session
                     WHERE i.id_appr = :id_appr
-                    AND s.date_debut <= :date_fin
-                    AND s.date_fin >= :date_debut
+                    AND s.date_debut < :date_fin
+                    AND s.date_fin > :date_debut
                     AND (s.etat = 'en cours dinscription' OR s.etat = 'en cours' )
+                    AND YEAR(s.date_debut) = YEAR(CURRENT_DATE()) 
                 ";
         $stmt = $pdo->prepare($sql4);
         $stmt->bindParam(':id_appr', $id_appr);
@@ -125,6 +129,19 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
         $stmt->bindParam(':date_fin', $row['date_fin']);
         $stmt->execute();
         $row4 = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        //check the number of places
+        $sqlSS = "SELECT COUNT(*) AS count FROM inscriptions WHERE id_session = :id_session";
+        $stmt = $pdo->prepare($sqlSS);
+        $stmt->bindParam(':id_session', $row['id_session']);
+        $stmt->execute();
+        $rowSS = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $sqlSSS = "SELECT * FROM sessions WHERE id_session = :id_session";
+        $stmt = $pdo->prepare($sqlSSS);
+        $stmt->bindParam(':id_session', $row['id_session']);
+        $stmt->execute();
+        $rowSSS = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
 
@@ -146,7 +163,16 @@ $id_appr = isset($_SESSION['id_appr']) ? $_SESSION['id_appr'] : "";
                 echo "<div class='alert alert-danger' role='alert'>
                     vous êtes déjà inscrit à une session qui se chevauche avec cette session.
                 </div>";
-            } 
+            }elseif($rowSS['count'] >= $rowSSS['places']){
+                echo "<div class='alert alert-danger' role='alert'>
+                Il n'y a plus de place disponible pour cette session.
+              </div>";
+        
+            }elseif($row['etat'] != 'en cours dinscription'){
+                echo "<div class='alert alert-danger' role='alert'>
+                Désoler cette formation est ".$row['etat'].".
+              </div>";
+            }
             else {
                 $sql5 = "INSERT INTO inscriptions (id_appr, id_session) VALUES (:id_appr, :id_session)";
                 $stmt = $pdo->prepare($sql5);
